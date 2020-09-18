@@ -46,7 +46,7 @@ int validate(int fn,int M, int N, int A[N][M], int B[M][N]) {
     return 1;
 }
 
-int main(int argc, char* argv[]){
+int main(int argc, char* argv[]) {
     int i;
 
     char c;

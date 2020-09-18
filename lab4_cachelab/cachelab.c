@@ -14,8 +14,7 @@ int func_counter = 0;
  * printSummary - Summarize the cache simulation statistics. Student cache simulators
  *                must call this function in order to be properly autograded. 
  */
-void printSummary(int hits, int misses, int evictions)
-{
+void printSummary(int hits, int misses, int evictions) {
     printf("hits:%d misses:%d evictions:%d\n", hits, misses, evictions);
     FILE* output_fp = fopen(".csim_results", "w");
     assert(output_fp);
@@ -26,8 +25,7 @@ void printSummary(int hits, int misses, int evictions)
 /* 
  * initMatrix - Initialize the given matrix 
  */
-void initMatrix(int M, int N, int A[N][M], int B[M][N])
-{
+void initMatrix(int M, int N, int A[N][M], int B[M][N]) {
     int i, j;
     srand(time(NULL));
     for (i = 0; i < N; i++){
@@ -53,8 +51,7 @@ void randMatrix(int M, int N, int A[N][M]) {
 /* 
  * correctTrans - baseline transpose function used to evaluate correctness 
  */
-void correctTrans(int M, int N, int A[N][M], int B[M][N])
-{
+void correctTrans(int M, int N, int A[N][M], int B[M][N]) {
     int i, j, tmp;
     for (i = 0; i < N; i++){
         for (j = 0; j < M; j++){
@@ -71,8 +68,7 @@ void correctTrans(int M, int N, int A[N][M], int B[M][N])
  *     of functions to be tested
  */
 void registerTransFunction(void (*trans)(int M, int N, int[N][M], int[M][N]), 
-                           char* desc)
-{
+                           char* desc) {
     func_list[func_counter].func_ptr = trans;
     func_list[func_counter].description = desc;
     func_list[func_counter].correct = 0;
