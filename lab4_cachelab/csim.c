@@ -37,8 +37,8 @@ void initCacheBlock(cache_block* cb, int cache_block_size) {
 }
 
 void parseSetidxTag(unsigned long address, int s, int b, int tagSize, 
-    
     int setNum, unsigned long* tag, unsigned long* setIdx) {
+
     *setIdx = (address << tagSize) >> (tagSize + b);
     *tag = address >> (s + b);
     if (*setIdx >= setNum) {
@@ -53,7 +53,7 @@ void parseSetidxTag(unsigned long address, int s, int b, int tagSize,
  *               emptiness or LRU(Least recent used) and update information.
  */
 int searchBlock(cache_block* cb, unsigned long tag, unsigned long setIdx, int E,
-     int showTrace, int* hit, int* miss) {
+     int showTrace, int time, int* hit, int* miss) {
     
     int candidateAddedIdx = -1;
     unsigned int leastRecentAccessBlockTime = UINT_MAX;
@@ -64,9 +64,10 @@ int searchBlock(cache_block* cb, unsigned long tag, unsigned long setIdx, int E,
         if (curCB->valid) {
             if (curCB->tag == tag) {
                 hitTarget = 1;
+                curCB->last_accessed_time = time;
                 break;
             } else if (!findEmpty) {  //Have not find the target, so find an insert target
-                if (curCB->last_accessed_time < leastRecentAccessBlockTime) {
+                if (curCB->last_accessed_time <= leastRecentAccessBlockTime) {
                     candidateAddedIdx = i;
                     leastRecentAccessBlockTime = curCB->last_accessed_time;
                 }
@@ -109,7 +110,7 @@ void addBlock(int blockIdx, cache_block* cb, unsigned long tag, unsigned long se
 void loadOrStoreData(cache_block* cb, unsigned long tag, unsigned long setIdx, int E,
      int showTrace, int time, int* hit, int* miss, int* eviction) {
     
-    int searchOutcome = searchBlock(cb, tag, setIdx, E, showTrace, hit, miss);
+    int searchOutcome = searchBlock(cb, tag, setIdx, E, showTrace, time, hit, miss);
     if (searchOutcome != -1) {
         addBlock(searchOutcome, cb, tag, setIdx, E, showTrace, time, eviction);        
     }
