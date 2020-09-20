@@ -44,8 +44,7 @@ static struct results results = {-1, 0, INT_MAX};
 /* 
  * eval_perf - Evaluate the performance of the registered transpose functions
  */
-void eval_perf(unsigned int s, unsigned int E, unsigned int b)
-{
+void eval_perf(unsigned int s, unsigned int E, unsigned int b) {
     int i,flag;
     unsigned int len, hits, misses, evictions;
     unsigned long long int marker_start, marker_end, addr;
@@ -67,7 +66,6 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
 
         printf("\nFunction %d (%d total)\nStep 1: Validating and generating memory traces\n",i,func_counter);
         /* Use valgrind to generate the trace */
-
         sprintf(cmd, "valgrind --tool=lackey --trace-mem=yes --log-fd=1 -v ./tracegen -M %d -N %d -F %d  > trace.tmp", M, N,i);
         flag=WEXITSTATUS(system(cmd));
         if (0!=flag) {
@@ -163,7 +161,7 @@ void eval_perf(unsigned int s, unsigned int E, unsigned int b)
 /*
  * usage - Print usage info
  */
-void usage(char *argv[]){
+void usage(char *argv[]) {
     printf("Usage: %s [-h] -M <rows> -N <cols>\n", argv[0]);
     printf("Options:\n");
     printf("  -h          Print this help message.\n");
@@ -175,7 +173,7 @@ void usage(char *argv[]){
 /*
  * sigsegv_handler - SIGSEGV handler
  */
-void sigsegv_handler(int signum){
+void sigsegv_handler(int signum) {
     printf("Error: Segmentation Fault.\n");
     printf("TEST_TRANS_RESULTS=0:0\n");
     fflush(stdout);
@@ -185,7 +183,7 @@ void sigsegv_handler(int signum){
 /*
  * sigalrm_handler - SIGALRM handler
  */
-void sigalrm_handler(int signum){
+void sigalrm_handler(int signum) {
     printf("Error: Program timed out.\n");
     printf("TEST_TRANS_RESULTS=0:0\n");
     fflush(stdout);
@@ -195,8 +193,7 @@ void sigalrm_handler(int signum){
 /* 
  * main - Main routine
  */
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     char c;
 
     while ((c = getopt(argc,argv,"M:N:h")) != -1) {

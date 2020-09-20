@@ -1,4 +1,8 @@
 *.pdf
 lab0_Ctest
 .DS_Store
-
+*.tar
+*.tmp
+trace.f*
+.marker
+*.o
