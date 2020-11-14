@@ -80,6 +80,7 @@ struct job_t *getjobpid(struct job_t *jobs, pid_t pid);
 struct job_t *getjobjid(struct job_t *jobs, int jid); 
 int pid2jid(pid_t pid); 
 void listjobs(struct job_t *jobs);
+void updateStoppedjobID(struct job_t *jobs, int pid);
 
 void usage(void);
 void unix_error(char *msg);
@@ -218,7 +219,7 @@ void eval(char *cmdline) {
                 sigsuspend(&prev_one);
             }
         } else {
-            printf("[%d] (%d) %s",pid2jid(pid), pid, cmdline);
+            printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
         }
     }
     
@@ -304,8 +305,39 @@ int builtin_cmd(char **argv)
 /* 
  * do_bgfg - Execute the builtin bg and fg commands
  */
-void do_bgfg(char **argv) 
-{
+void do_bgfg(char **argv) {
+    if (!argv[1]) {
+        printf("%s command requires PID or %%jobid argument\n", argv[0]);
+        return;
+    }
+    struct job_t * job;
+    int index = (argv[1][0] == '%')? 1: 0;
+
+    int id = atoi((const char *)&argv[1][index]);
+    if (id == 0) {
+        printf("%s: argument must be a PID or %%jobid\n", argv[0]);
+        return;
+    }
+
+    if (index == 1) {
+        job = getjobjid(jobs, id);
+    } else {
+        job = getjobpid(jobs, id);
+    }
+
+    if (!job) {
+        printf("(%d): No such %s\n", id, (index == 1)? "job": "process");
+        return;
+    }
+
+    Kill(-job->pid, SIGCONT);
+
+    if (!strcmp(argv[0], "fg")) {
+        job->state = FG;
+        waitfg(job->pid);
+    } else {
+        job->state = BG;
+    }
     return;
 }
 
@@ -314,7 +346,15 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    
+    sigset_t mask;
+    Sigemptyset(&mask);
+
+    while (1) {
+        if (fgpid(jobs) != pid) {
+            return;
+        }
+        sigsuspend(&mask);
+    }
     return;
 }
 
@@ -341,10 +381,15 @@ void sigchld_handler(int sig) {
         if (job_p->state == FG) {
             forground_state = 1;
         }
-        if (!WIFEXITED(status)) {
-            printf("Job [%d] (%d) terminated by signal 2\n", job_p->jid, job_p->pid);
+        if (WIFSTOPPED(status)) {
+            printf("Job [%d] (%d) stopped by signal 20\n", job_p->jid, job_p->pid);
+            updateStoppedjobID(jobs, pid);
+        } else {
+            if (!WIFEXITED(status)) {
+                printf("Job [%d] (%d) terminated by signal 2\n", job_p->jid, job_p->pid);
+            }
+            deletejob(jobs, pid); /* Delete the child from the job list */
         }
-        deletejob(jobs, pid); /* Delete the child from the job list */
         Sigprocmask(SIG_SETMASK, &prev_all, NULL);
     }
     // if (errno != ECHILD)
@@ -374,6 +419,11 @@ void sigint_handler(int sig) {
  */
 void sigtstp_handler(int sig) 
 {
+    pid_t forground_pid = fgpid(jobs);
+    if ((forground_pid = fgpid(jobs)) != 0) {
+        pid_t forground_gid = Getpgid(forground_pid);
+        Kill(-forground_gid, SIGSTOP);
+    }
     return;
 }
 
@@ -530,6 +580,18 @@ void listjobs(struct job_t *jobs)
             printf("%s", jobs[i].cmdline);
         }
     }
+}
+
+/* stopjobs - Update the specified job state into stop */
+void updateStoppedjobID(struct job_t *jobs, int pid) {
+    int i;
+    for (i = 0; i < MAXJOBS; i++) {
+        if (jobs[i].pid == pid) {
+            jobs[i].state = ST;
+            break;
+        }
+    }
+    return;
 }
 /******************************
  * end job list helper routines
