@@ -87,6 +87,17 @@ void app_error(char *msg);
 typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
 
+/* Here are wrapper function for system call error detection */
+pid_t Fork(void);
+void Execve(const char *filename, char *const argv[], char *const envp[]);
+void Sigemptyset(sigset_t *set);
+void Sigaddset(sigset_t *set, int signum);
+void Sigfillset(sigset_t *set);
+void Kill(pid_t pid, int signum);
+void Setpgid(pid_t pid, pid_t pgid);
+void Sigprocmask(int how, sigset_t *set, sigset_t *oldset);
+pid_t Getpgid(pid_t id);
+
 /*
  * main - The shell's main routine 
  */
@@ -178,19 +189,16 @@ void eval(char *cmdline) {
         return;   /* Ignore empty lines */
 
     sigset_t mask_all, mask_one, prev_one;
-    sigfillset(&mask_all);
-    sigemptyset(&mask_one);
-    sigaddset(&mask_one, SIGCHLD);
+    Sigfillset(&mask_all);
+    Sigemptyset(&mask_one);
+    Sigaddset(&mask_one, SIGCHLD);
 
     if (!builtin_cmd(argv)) {
-        sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
-        if ((pid = fork()) == 0) {   /* Child runs user job */
-            sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
+        if ((pid = Fork()) == 0) {   /* Child runs user job */
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
             setpgid(0, 0);
-            if (execve(argv[0], argv, environ) < 0) {
-                printf("%s: Command not found.\n", argv[0]);
-                exit(0);
-            }
+            Execve(argv[0], argv, environ);
         }
 
         int p_state;
@@ -200,9 +208,9 @@ void eval(char *cmdline) {
             p_state = BG;
         }
 
-        sigprocmask(SIG_BLOCK, &mask_all, NULL);
+        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
         addjob(jobs, pid, p_state, cmdline);
-        sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
 
         if (!bg) {   /* wait for foreground job stop */
             forground_state = 0;
@@ -325,15 +333,19 @@ void sigchld_handler(int sig) {
     int olderrno = errno;
     sigset_t mask_all, prev_all;
     pid_t pid;
-    sigfillset(&mask_all);
+    Sigfillset(&mask_all);
     int status;
     while ((pid = waitpid(-1, &status, WNOHANG|WUNTRACED)) > 0) { /* Reap a zombie child */
-        sigprocmask(SIG_BLOCK, &mask_all, &prev_all);
-        if (getjobpid(jobs, pid)->state == FG) {
+        Sigprocmask(SIG_BLOCK, &mask_all, &prev_all);
+        struct job_t *job_p = getjobpid(jobs, pid);
+        if (job_p->state == FG) {
             forground_state = 1;
         }
+        if (!WIFEXITED(status)) {
+            printf("Job [%d] (%d) terminated by signal 2\n", job_p->jid, job_p->pid);
+        }
         deletejob(jobs, pid); /* Delete the child from the job list */
-        sigprocmask(SIG_SETMASK, &prev_all, NULL);
+        Sigprocmask(SIG_SETMASK, &prev_all, NULL);
     }
     // if (errno != ECHILD)
     //     unix_error("waitpid error");
@@ -346,8 +358,12 @@ void sigchld_handler(int sig) {
  *    user types ctrl-c at the keyboard.  Catch it and send it along
  *    to the foreground job.  
  */
-void sigint_handler(int sig) 
-{
+void sigint_handler(int sig) {
+    pid_t forground_pid = fgpid(jobs);
+    if ((forground_pid = fgpid(jobs)) != 0) {
+        pid_t forground_gid = Getpgid(forground_pid);
+        Kill(-forground_gid, SIGKILL);
+    }
     return;
 }
 
@@ -624,15 +640,22 @@ void Kill(pid_t pid, int signum)
     int rc;
 
     if ((rc = kill(pid, signum)) < 0)
-    unix_error("Kill error");
+        unix_error("Kill error");
 }
 void Setpgid(pid_t pid, pid_t pgid) {
     int rc;
 
     if ((rc = setpgid(pid, pgid)) < 0)
-    unix_error("Setpgid error");
+        unix_error("Setpgid error");
     return;
 }
 
+pid_t Getpgid(pid_t id) {
+    pid_t gid;
+    if ((gid = getpgid(id)) < 0) {
+        unix_error("Getpgid error");
+    }
+    return gid;
+}
 
 
